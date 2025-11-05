@@ -393,6 +393,7 @@ export default function App() {
     );
   }
 
+  
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
