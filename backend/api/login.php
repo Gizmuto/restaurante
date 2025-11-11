@@ -21,7 +21,7 @@ $usuarioPrueba = [
     "nombre" => "Bachata",
     "email" => "admin@app.com",
     "password" => "Admin123",
-    "perfil" => "trabajador"
+    "perfil" => "administrador"
 ];
 
 // Leer datos del frontend
