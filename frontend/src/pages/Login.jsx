@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export default function Login({ onLoginSuccess }) {
   const [formData, setFormData] = useState({
-    id: '',
+    identificacion: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ export default function Login({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
-    if (!formData.id || !formData.password) {
+    if (!formData.identificacion || !formData.password) {
       setError('Por favor complete todos los campos');
       setLoading(false);
       return;
@@ -35,36 +35,52 @@ export default function Login({ onLoginSuccess }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
-          id: parseInt(formData.id),
+          identificacion: String(formData.identificacion),
           password: formData.password
         })
       });
 
-      const data = await response.json();
+      // Obtener el texto de la respuesta primero
+      const text = await response.text();
+      
+      // Intentar parsear como JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Error al parsear JSON:', text);
+        setError('Error del servidor. Respuesta inválida.');
+        setLoading(false);
+        return;
+      }
 
+      // Si la respuesta es exitosa
       if (response.ok && data.ok) {
         setSuccess(true);
         
-        // Guardar datos
+        // Guardar token, usuario y admin_id en localStorage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('admin_id', data.admin_id || data.user.id);
         
-        console.log('Login exitoso:', data);
+        console.log('✅ Login exitoso:', data);
         
-        // Llamar callback
+        // Llamar callback después de un breve delay
         setTimeout(() => {
           if (onLoginSuccess) {
             onLoginSuccess(data.user);
           }
-        }, 500);
+        }, 800);
         
       } else {
+        // Manejar errores específicos
         setError(data.error || 'Error al iniciar sesión');
       }
     } catch (err) {
       console.error('Error de conexión:', err);
-      setError('No se pudo conectar con el servidor');
+      setError('No se pudo conectar con el servidor. Verifica que Apache/PHP esté corriendo.');
     } finally {
       setLoading(false);
     }
@@ -80,15 +96,15 @@ export default function Login({ onLoginSuccess }) {
               🔐
             </div>
             <h1 className="text-2xl font-bold mb-2">Iniciar Sesión</h1>
-            <p className="text-blue-100 text-sm">Accede a tu cuenta</p>
+            <p className="text-blue-100 text-sm">Restaurante Comer Bien</p>
           </div>
 
           {/* Form */}
           <div className="p-8">
             {/* Error Alert */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                <span className="text-red-600 text-xl">⚠️</span>
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 animate-shake">
+                <span className="text-red-600 text-xl flex-shrink-0">⚠️</span>
                 <p className="text-red-800 text-sm">{error}</p>
               </div>
             )}
@@ -96,28 +112,29 @@ export default function Login({ onLoginSuccess }) {
             {/* Success Alert */}
             {success && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-                <span className="text-green-600 text-xl">✓</span>
-                <p className="text-green-800 text-sm">¡Login exitoso! Redirigiendo...</p>
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <p className="text-green-800 text-sm font-semibold">¡Login exitoso! Redirigiendo...</p>
               </div>
             )}
 
-            {/* Campo ID */}
+            {/* Campo IDENTIFICACION */}
             <div className="mb-6">
-              <label htmlFor="id" className="block text-gray-700 text-sm font-semibold mb-2">
-                ID de Usuario
+              <label htmlFor="identificacion" className="block text-gray-700 text-sm font-semibold mb-2">
+                Identificación
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-xl">👤</span>
                 <input
-                  type="number"
-                  id="id"
-                  name="id"
-                  value={formData.id}
+                  type="text"
+                  id="identificacion"
+                  name="identificacion"
+                  value={formData.identificacion}
                   onChange={handleChange}
                   onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="Ingresa tu ID"
+                  placeholder="Ingresa tu identificacion"
                   disabled={loading || success}
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -139,6 +156,7 @@ export default function Login({ onLoginSuccess }) {
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="Ingresa tu contraseña"
                   disabled={loading || success}
+                  autoComplete="current-password"
                 />
               </div>
             </div>
@@ -148,7 +166,7 @@ export default function Login({ onLoginSuccess }) {
               type="button"
               onClick={handleSubmit}
               disabled={loading || success}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
             >
               {loading ? (
                 <>
@@ -167,22 +185,12 @@ export default function Login({ onLoginSuccess }) {
                 </>
               )}
             </button>
-
-            {/* Info de prueba */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-xs text-gray-600 font-semibold mb-2">📝 Credenciales de prueba:</p>
-              <p className="text-xs text-gray-500">ID: <span className="font-mono font-semibold">1</span></p>
-              <p className="text-xs text-gray-500">Password: <span className="font-mono font-semibold">Admin123</span></p>
-            </div>
           </div>
         </div>
 
         {/* Footer */}
         <p className="text-center text-gray-500 text-sm mt-6">
-          ¿Olvidaste tu contraseña?{' '}
-          <button className="text-blue-600 hover:text-blue-800 font-semibold">
-            Recuperar acceso
-          </button>
+          Restaurante Comer Bien - {new Date().getFullYear()}
         </p>
       </div>
     </div>

@@ -3,14 +3,29 @@ import Login from './pages/Login';
 
 // Dashboard Trabajador
 function DashboardTrabajador({ user, onLogout }) {
-  const [selectedMenu, setSelectedMenu] = useState(null);
+  const [selectedMenuOption, setSelectedMenuOption] = useState(null);
   const [pedidoConfirmado, setPedidoConfirmado] = useState(false);
+  const [menus, setMenus] = useState([]);
 
-  const menus = [
-    { id: 1, nombre: 'Opción A: Pollo a la plancha', descripcion: 'Con arroz y ensalada', emoji: '🍗' },
-    { id: 2, nombre: 'Opción B: Pescado al horno', descripcion: 'Con puré y vegetales', emoji: '🐟' },
-    { id: 3, nombre: 'Opción C: Pasta vegetariana', descripcion: 'Con salsa de tomate', emoji: '🍝' }
-  ];
+  useEffect(() => {
+    if (user?.empresa_id) {
+      fetchMenusByEmpresa(user.empresa_id);
+    } else {
+      setMenus([]);
+    }
+  }, [user]);
+
+  const fetchMenusByEmpresa = async (empresa_id) => {
+    try {
+      const res = await fetch(`http://localhost/restaurante/backend/api/menus.php?empresa_id=${empresa_id}`);
+      const txt = await res.text();
+      const data = JSON.parse(txt.replace(/^\uFEFF/, '').trim());
+      setMenus(data.menus || []);
+    } catch (err) {
+      console.error('Error cargar menus trabajador', err);
+      setMenus([]);
+    }
+  };
 
   const confirmarPedido = () => {
     setPedidoConfirmado(true);
@@ -24,7 +39,7 @@ function DashboardTrabajador({ user, onLogout }) {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold">Comer Bien</h1>
-              <p className="text-sm text-orange-100">{user.nombre}</p>
+              <p className="text-sm text-orange-100">{user?.nombre}</p>
             </div>
             <button onClick={onLogout} className="bg-white text-orange-900 px-4 py-2 rounded-lg font-bold hover:bg-orange-50">
               Cerrar Sesión
@@ -48,36 +63,56 @@ function DashboardTrabajador({ user, onLogout }) {
         <h2 className="text-xl font-bold mb-4">Selecciona tu menú del día:</h2>
 
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          {menus.map(menu => (
-            <div
-              key={menu.id}
-              onClick={() => setSelectedMenu(menu.id)}
-              className={`cursor-pointer border-2 rounded-xl p-6 transition-all ${
-                selectedMenu === menu.id
-                  ? 'border-orange-500 bg-orange-50 shadow-lg'
-                  : 'border-gray-200 hover:border-orange-300 hover:shadow-md'
-              }`}
-            >
-              <div className="text-4xl mb-3 text-center">{menu.emoji}</div>
-              <h3 className="font-bold text-lg mb-2">{menu.nombre}</h3>
-              <p className="text-sm text-gray-600">{menu.descripcion}</p>
-              {selectedMenu === menu.id && (
-                <div className="mt-3 text-center">
-                  <span className="inline-block bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    ✓ Seleccionado
-                  </span>
+          {menus.length > 0 ? (
+            // cada menu puede tener 'opciones' con idx, nombre y precio (según backend)
+            menus.map(menu => (
+              <div key={menu.id} className="col-span-3 md:col-span-1">
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-bold text-lg mb-2">{menu.nombre}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{menu.descripcion}</p>
+
+                  <div className="space-y-3">
+                    {(menu.opciones || []).map((op) => (
+                      <div
+                        key={op.opcion_id || op.idx}
+                        onClick={() => setSelectedMenuOption({ menuId: menu.id, opcionIdx: op.idx })}
+                        className={`cursor-pointer p-3 rounded-lg border ${
+                          selectedMenuOption && selectedMenuOption.menuId === menu.id && selectedMenuOption.opcionIdx === op.idx
+                            ? 'border-orange-500 bg-orange-50 shadow-lg'
+                            : 'border-gray-200 hover:border-orange-300'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-semibold">Opción {String.fromCharCode(64 + (op.idx || 1))}: {op.nombre}</p>
+                            {op.descripcion && <p className="text-sm text-gray-600">{op.descripcion}</p>}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-orange-600">{op.precio !== null && op.precio !== undefined ? `${op.precio.toFixed(2)}` : '—'}</p>
+                          </div>
+                        </div>
+                        {selectedMenuOption && selectedMenuOption.menuId === menu.id && selectedMenuOption.opcionIdx === op.idx && (
+                          <div className="mt-2 text-center">
+                            <span className="inline-block bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold">✓ Seleccionado</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500">No hay menús publicados para tu empresa.</p>
+          )}
         </div>
 
         <button
           onClick={confirmarPedido}
-          disabled={!selectedMenu}
+          disabled={!selectedMenuOption}
           className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          {selectedMenu ? '✓ Confirmar mi Pedido' : '⚠️ Selecciona una opción primero'}
+          {selectedMenuOption ? '✓ Confirmar mi Pedido' : '⚠️ Selecciona una opción primero'}
         </button>
       </div>
     </div>
