@@ -1,227 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import MenusSection from './components/MenusSection';
-
-const API_BASE = 'http://localhost/restaurante/backend/api';
+import Login from './pages/Login';
 
 // Dashboard Supervisor
 function DashboardSupervisor({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('pedidos');
-  const [menus, setMenus] = useState([]);
-  const [empresas, setEmpresas] = useState([]);
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState(user?.empresa_id ?? null);
-
-  // Modal y formulario para crear menú (Supervisor)
-  const [showMenuModal, setShowMenuModal] = useState(false);
-  const [menuForm, setMenuForm] = useState({
-    id: null, nombre: '', descripcion: '', empresa_id: user?.empresa_id || '',
-    opciones: [
-      { opcion_id: null, nombre: '', descripcion: '', precio: '' },
-      { opcion_id: null, nombre: '', descripcion: '', precio: '' },
-      { opcion_id: null, nombre: '', descripcion: '', precio: '' }
-    ]
-  });
-
-  const [showMenuDeleteModal, setShowMenuDeleteModal] = useState(false);
-  const [menuToDelete, setMenuToDelete] = useState(null);
-  const [copyTargets, setCopyTargets] = useState({});
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
-
-  useEffect(() => {
-    cargarEmpresas();
-    if (user?.empresa_id) {
-      setSelectedEmpresaId(Number(user.empresa_id));
-      cargarMenus(Number(user.empresa_id));
-    } else {
-      cargarMenus(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  useEffect(() => {
-    if (selectedEmpresaId) cargarMenus(selectedEmpresaId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEmpresaId]);
-
-  const showToast = (message, type = 'info', ms = 3000) => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast(t => ({ ...t, show: false })), ms);
-  };
-
-  const intval = (v) => parseInt(v, 10) || 0;
-
-  const cargarEmpresas = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/empresas.php`);
-      const txt = await res.text();
-      const data = JSON.parse(txt.replace(/^\uFEFF/, '').trim());
-      setEmpresas(data.empresas || []);
-    } catch (err) {
-      console.error('Error cargar empresas', err);
-    }
-  };
-
-  const cargarMenus = async (empresa_id = null) => {
-    try {
-      const url = empresa_id ? `${API_BASE}/menus.php?empresa_id=${empresa_id}` : `${API_BASE}/menus.php`;
-      const res = await fetch(url);
-      const txt = await res.text();
-      const data = JSON.parse(txt.replace(/^\uFEFF/, '').trim());
-      setMenus(data.menus || []);
-    } catch (err) {
-      console.error('Error cargar menus:', err);
-      showToast('Error al cargar menús', 'error');
-    }
-  };
-
-  const openCreateMenuModal = () => {
-    setMenuForm({
-      id: null,
-      nombre: '',
-      descripcion: '',
-      empresa_id: selectedEmpresaId || '',
-      opciones: [
-        { opcion_id: null, nombre: '', descripcion: '', precio: '' },
-        { opcion_id: null, nombre: '', descripcion: '', precio: '' },
-        { opcion_id: null, nombre: '', descripcion: '', precio: '' }
-      ]
-    });
-    setShowMenuModal(true);
-  };
-
-  const openEditMenuModal = (menu) => {
-    const opciones = [1,2,3].map(i => {
-      const o = (menu.opciones || []).find(x => Number(x.idx) === i) || {};
-      return {
-        opcion_id: o.opcion_id || null,
-        nombre: o.nombre || '',
-        descripcion: o.descripcion || '',
-        precio: o.precio !== undefined && o.precio !== null ? o.precio : ''
-      };
-    });
-    setMenuForm({
-      id: menu.id,
-      nombre: menu.nombre || '',
-      descripcion: menu.descripcion || '',
-      empresa_id: menu.empresa_id || selectedEmpresaId || '',
-      opciones
-    });
-    setShowMenuModal(true);
-  };
-
-  const handleMenuSave = async () => {
-    if (!menuForm.nombre || !menuForm.empresa_id || !Array.isArray(menuForm.opciones) || menuForm.opciones.length !== 3) {
-      showToast('Completa nombre, empresa y 3 opciones', 'warning');
-      return;
-    }
-
-    const method = menuForm.id ? 'PUT' : 'POST';
-    const payload = {
-      ...(menuForm.id && { id: Number(menuForm.id) }),
-      nombre: menuForm.nombre,
-      descripcion: menuForm.descripcion,
-      empresa_id: Number(menuForm.empresa_id),
-      opciones: menuForm.opciones.map(o => ({
-        opcion_id: o.opcion_id ? Number(o.opcion_id) : null,
-        nombre: o.nombre,
-        descripcion: o.descripcion,
-        precio: o.precio !== '' ? Number(o.precio) : 0
-      }))
-    };
-
-    try {
-      const res = await fetch(`${API_BASE}/menus.php`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const txt = await res.text();
-      const data = (() => { try { return JSON.parse(txt.replace(/^\uFEFF/, '').trim()); } catch { return { raw: txt }; } })();
-
-      if (res.ok) {
-        showToast(data.mensaje || 'Menú guardado', 'success');
-        setShowMenuModal(false);
-        await cargarMenus(Number(payload.empresa_id));
-      } else {
-        console.error('Error guardar menú:', data);
-        showToast(data.error || 'Error al guardar', 'error');
-      }
-    } catch (err) {
-      console.error('Exception handleMenuSave:', err);
-      showToast('Error de red', 'error');
-    }
-  };
-
-  const confirmDeleteMenu = (menu) => {
-    setMenuToDelete(menu);
-    setShowMenuDeleteModal(true);
-  };
-
-  const handleMenuDelete = async () => {
-    if (!menuToDelete || !menuToDelete.id) {
-      showToast('Menú inválido', 'warning');
-      return;
-    }
-    const id = Number(menuToDelete.id);
-    try {
-      const res = await fetch(`${API_BASE}/menus.php`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      const txt = await res.text();
-      const data = (() => { try { return JSON.parse(txt.replace(/^\uFEFF/, '').trim()); } catch { return { raw: txt }; } })();
-      if (res.ok) {
-        showToast(data.mensaje || 'Menú eliminado', 'success');
-        setShowMenuDeleteModal(false);
-        setMenuToDelete(null);
-        await cargarMenus(selectedEmpresaId);
-      } else {
-        console.error('Error eliminar menú:', data);
-        showToast(data.error || 'Error al eliminar', 'error');
-      }
-    } catch (err) {
-      console.error('Exception handleMenuDelete:', err);
-      showToast('Error de red', 'error');
-    }
-  };
-
-  const copyMenu = async (menuId, targetEmpresaId) => {
-    const mId = Number(menuId);
-    const tId = Number(targetEmpresaId);
-    if (!mId || !tId) { showToast('Empresa destino inválida', 'warning'); return; }
-    setCopyTargets(prev => ({ ...prev, [mId]: 'loading' }));
-    try {
-      const res = await fetch(`${API_BASE}/menus.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'copy', menu_id: mId, target_empresa_id: tId })
-      });
-      const txt = await res.text();
-      const data = (() => { try { return JSON.parse(txt.replace(/^\uFEFF/, '').trim()); } catch { return { raw: txt }; } })();
-      if (res.ok) {
-        showToast(data.mensaje || 'Menú copiado', 'success');
-        await cargarMenus(selectedEmpresaId);
-      } else {
-        console.error('Error copiar menú:', data);
-        showToast(data.error || 'Error al copiar', 'error');
-      }
-    } catch (err) {
-      console.error('Exception copyMenu:', err);
-      showToast('Error de red', 'error');
-    } finally {
-      setCopyTargets(prev => ({ ...prev, [mId]: null }));
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">👔 Panel Supervisor</h1>
-            <p className="text-sm text-blue-100">{user?.nombre}</p>
-          </div>
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">👔 Panel Supervisor</h1>
+              <p className="text-sm text-blue-100">{user.nombre}</p>
+            </div>
             <button onClick={onLogout} className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50">
               Cerrar Sesión
             </button>
@@ -250,82 +42,51 @@ function DashboardSupervisor({ user, onLogout }) {
 
         {activeTab === 'pedidos' && (
           <div className="bg-white rounded-xl shadow-md p-6">
-            <RecepcionPedidos user={user} />
+            <h2 className="text-xl font-bold mb-4">📥 Recepción de Pedidos</h2>
+            <div className="space-y-3">
+              {[
+                { empresa: 'Empresa A', pedidos: 25, hora: '16:45' },
+                { empresa: 'Empresa B', pedidos: 18, hora: '16:30' },
+                { empresa: 'Empresa C', pedidos: 32, hora: '16:55' }
+              ].map((e, i) => (
+                <div key={i} className="flex justify-between items-center p-4 border rounded-lg">
+                  <div>
+                    <p className="font-semibold">{e.empresa}</p>
+                    <p className="text-sm text-gray-600">{e.pedidos} pedidos - Recibido: {e.hora}</p>
+                  </div>
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Ver Detalle
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Tab: Menús */}
         {activeTab === 'menus' && (
           <div className="bg-white rounded-xl shadow-md p-6">
-            <MenusSection user={user} />
+            <h2 className="text-xl font-bold mb-4">🍽️ Crear Menú del Día</h2>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+              ➕ Nuevo Menú
+            </button>
           </div>
         )}
 
         {activeTab === 'entregas' && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-xl font-bold mb-4">🚚 Control de Entregas</h2>
-            <p className="text-sm text-gray-600">Panel de entregas (resumen)</p>
+            <div className="space-y-2">
+              {['Empresa A - Pendiente', 'Empresa B - Entregado', 'Empresa C - En camino'].map((e, i) => (
+                <div key={i} className="flex justify-between items-center p-4 border rounded-lg">
+                  <span>{e}</span>
+                  <button className="text-green-600 hover:underline">✓ Marcar Entregado</button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
-
-      {/* Create / Edit Menu Modal */}
-      {showMenuModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-screen overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">{menuForm.id ? 'Editar Menú' : 'Crear Menú'}</h3>
-            <div className="space-y-3">
-              <input className="w-full border p-2 rounded" placeholder="Nombre" value={menuForm.nombre} onChange={e => setMenuForm(f => ({ ...f, nombre: e.target.value }))} />
-              <textarea className="w-full border p-2 rounded" placeholder="Descripción" value={menuForm.descripcion} onChange={e => setMenuForm(f => ({ ...f, descripcion: e.target.value }))} />
-              <div className="grid grid-cols-3 gap-4">
-                {menuForm.opciones.map((op, idx) => (
-                  <div key={idx} className="p-3 border rounded bg-gray-50">
-                    <label className="text-xs font-semibold block mb-1">Opción {String.fromCharCode(65 + idx)}</label>
-                    <input className="w-full border p-2 rounded mb-1 text-sm" placeholder="Nombre" value={op.nombre} onChange={e => { const c = [...menuForm.opciones]; c[idx].nombre = e.target.value; setMenuForm(f => ({ ...f, opciones: c })); }} />
-                    <input className="w-full border p-2 rounded mb-1 text-sm" placeholder="Descripción" value={op.descripcion} onChange={e => { const c = [...menuForm.opciones]; c[idx].descripcion = e.target.value; setMenuForm(f => ({ ...f, opciones: c })); }} />
-                    <input type="number" step="0.01" className="w-full border p-2 rounded text-sm" placeholder="Precio" value={op.precio} onChange={e => { const c = [...menuForm.opciones]; c[idx].precio = e.target.value; setMenuForm(f => ({ ...f, opciones: c })); }} />
-                  </div>
-                ))}
-              </div>
-
-              {!menuForm.id && (
-                <select className="w-full border p-2 rounded" value={menuForm.empresa_id || ''} onChange={e => setMenuForm(f => ({ ...f, empresa_id: e.target.value }))}>
-                  <option value="">-- Selecciona Empresa --</option>
-                  {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
-                </select>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => setShowMenuModal(false)}>Cancelar</button>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded" onClick={handleMenuSave}>{menuForm.id ? 'Guardar Cambios' : 'Crear Menú'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Menu Modal */}
-      {showMenuDeleteModal && menuToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold mb-2">Confirmar eliminación</h3>
-            <p className="text-sm text-gray-600 mb-4">¿Eliminar el menú <strong>{menuToDelete.nombre}</strong>? Se eliminarán sus opciones y precios.</p>
-            <div className="flex justify-end gap-2">
-              <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => { setShowMenuDeleteModal(false); setMenuToDelete(null); }}>Cancelar</button>
-              <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={handleMenuDelete}>Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Simple toast */}
-      {toast.show && (
-        <div className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow ${toast.type === 'error' ? 'bg-red-600 text-white' : toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-gray-800 text-white'}`}>
-          {toast.message}
-        </div>
-      )}
     </div>
   );
 }
-
-export default DashboardSupervisor;
+export default DashboardSupervisor
