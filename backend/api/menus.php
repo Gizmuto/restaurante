@@ -5,7 +5,6 @@ ini_set('display_startup_errors', 1);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// NO enviar headers CORS aquí — dejar que Apache los maneje
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

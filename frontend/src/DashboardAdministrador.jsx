@@ -96,6 +96,7 @@ function DashboardAdministrador({ user, onLogout }) {
       id: usuario.id,
       nombre: usuario.nombre,
       email: usuario.email,
+      empresa_id: usuario.empresa_id,
       perfil: usuario.perfil,
       password: ''
     });

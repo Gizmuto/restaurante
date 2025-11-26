@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MenusSection from './components/MenusSection';
 import RecepcionPedidos from './components/RecepcionPedidos';
 
 // Dashboard Supervisor
@@ -24,7 +25,7 @@ function DashboardSupervisor({ user, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="bg-white rounded-xl shadow-md mb-6">
           <div className="flex border-b overflow-x-auto">
-            {['pedidos', 'menus', 'entregas'].map(tab => (
+            {['pedidos', 'menus'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -47,28 +48,12 @@ function DashboardSupervisor({ user, onLogout }) {
           </div>
         )}
 
+        {/* Tab: Menús */}
         {activeTab === 'menus' && (
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4">🍽️ Crear Menú del Día</h2>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-              ➕ Nuevo Menú
-            </button>
+            <MenusSection user={user} />
           </div>
-        )}
-
-        {activeTab === 'entregas' && (
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4">🚚 Control de Entregas</h2>
-            <div className="space-y-2">
-              {['Empresa A - Pendiente', 'Empresa B - Entregado', 'Empresa C - En camino'].map((e, i) => (
-                <div key={i} className="flex justify-between items-center p-4 border rounded-lg">
-                  <span>{e}</span>
-                  <button className="text-green-600 hover:underline">✓ Marcar Entregado</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        )}                         
       </div>
     </div>
   );
