@@ -20,8 +20,8 @@ if (empty($identificacion) || empty($password)) {
     exit;
 }
 
-// Buscar usuario por IDENTIFICACION en lugar de ID
-$stmt = $conn->prepare("SELECT id, identificacion, nombre, email, password, perfil FROM usuarios WHERE identificacion = ?");
+// ⭐ MODIFICADO: Incluir empresa_id en la consulta
+$stmt = $conn->prepare("SELECT id, identificacion, nombre, email, password, perfil, empresa_id FROM usuarios WHERE identificacion = ?");
 $stmt->bind_param("s", $identificacion);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -40,27 +40,31 @@ $stmt->close();
 if (password_verify($password, $usuario['password'])) {
     $token = bin2hex(random_bytes(32));
     
+    // ⭐ MODIFICADO: Incluir empresa_id en la sesión
     $_SESSION['user'] = [
         "id" => $usuario["id"],
         "identificacion" => $usuario["identificacion"],
         "nombre" => $usuario["nombre"],
         "email" => $usuario["email"],
-        "perfil" => $usuario["perfil"]
+        "perfil" => $usuario["perfil"],
+        "empresa_id" => $usuario["empresa_id"] ? (int)$usuario["empresa_id"] : null
     ];
     $_SESSION['token'] = $token;
     
+    // ⭐ MODIFICADO: Incluir empresa_id en la respuesta
     http_response_code(200);
     echo json_encode([
         "ok" => true,
         "user" => [
-            "id" => $usuario["id"],
+            "id" => (int)$usuario["id"],
             "identificacion" => $usuario["identificacion"],
             "nombre" => $usuario["nombre"],
             "email" => $usuario["email"],
-            "perfil" => $usuario["perfil"]
+            "perfil" => $usuario["perfil"],
+            "empresa_id" => $usuario["empresa_id"] ? (int)$usuario["empresa_id"] : null
         ],
         "token" => $token,
-        "admin_id" => $usuario["id"]
+        "admin_id" => (int)$usuario["id"]
     ]);
 } else {
     http_response_code(401);
