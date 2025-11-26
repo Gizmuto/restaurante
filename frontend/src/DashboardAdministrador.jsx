@@ -498,7 +498,7 @@ function DashboardAdministrador({ user, onLogout }) {
               onClick={onLogout} 
               className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
             >
-              🚪 Cerrar Sesión
+              Cerrar Sesión
             </button>
           </div>
         </div>

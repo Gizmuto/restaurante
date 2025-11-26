@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Login from './pages/Login';
+import RecepcionPedidos from './components/RecepcionPedidos';
 
 // Dashboard Supervisor
 function DashboardSupervisor({ user, onLogout }) {
@@ -40,26 +40,10 @@ function DashboardSupervisor({ user, onLogout }) {
           </div>
         </div>
 
+        {/* Tab: Pedidos */}
         {activeTab === 'pedidos' && (
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4">📥 Recepción de Pedidos</h2>
-            <div className="space-y-3">
-              {[
-                { empresa: 'Empresa A', pedidos: 25, hora: '16:45' },
-                { empresa: 'Empresa B', pedidos: 18, hora: '16:30' },
-                { empresa: 'Empresa C', pedidos: 32, hora: '16:55' }
-              ].map((e, i) => (
-                <div key={i} className="flex justify-between items-center p-4 border rounded-lg">
-                  <div>
-                    <p className="font-semibold">{e.empresa}</p>
-                    <p className="text-sm text-gray-600">{e.pedidos} pedidos - Recibido: {e.hora}</p>
-                  </div>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                    Ver Detalle
-                  </button>
-                </div>
-              ))}
-            </div>
+            <RecepcionPedidos user={user} />
           </div>
         )}
 
