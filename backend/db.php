@@ -4,7 +4,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$conn = new mysqli("localhost", "root", "", "app_comidas");
+$conn = new mysqli("localhost", "root", "", "app_comidas", 3306);
 
 if ($conn->connect_error) {
     http_response_code(500);
