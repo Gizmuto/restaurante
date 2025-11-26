@@ -149,29 +149,31 @@ export default function MenusSection({ user = null }) {
       showToast('Menú inválido', 'warning');
       return;
     }
+
     const id = Number(menuToDelete.id);
+
     try {
-      const res = await fetch(`${API_BASE}/menus.php`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+      const res = await fetch(`${API_BASE}/menus.php?id=${id}`, {
+        method: 'DELETE'
       });
+
       const txt = await res.text();
-      const data = (() => { try { return JSON.parse(txt.replace(/^\uFEFF/, '').trim()); } catch { return { raw: txt }; } })();
+      const data = (() => { try { return JSON.parse(txt); } catch { return { raw: txt }; } })();
+
       if (res.ok) {
         showToast(data.mensaje || 'Menú eliminado', 'success');
         setShowMenuDeleteModal(false);
         setMenuToDelete(null);
         await cargarMenus(selectedEmpresaId);
       } else {
-        console.error('Error eliminar menú:', data);
         showToast(data.error || 'Error al eliminar', 'error');
       }
     } catch (err) {
-      console.error('Exception handleMenuDelete:', err);
+      console.error(err);
       showToast('Error de red', 'error');
     }
   };
+
 
   const copyMenu = async (menuId, targetEmpresaId) => {
     const mId = Number(menuId);
