@@ -1,134 +1,204 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Servidor: 127.0.0.1
--- Tiempo de generación: 05-11-2025 a las 17:18:41
--- Versión del servidor: 10.4.32-MariaDB
--- Versión de PHP: 8.2.12
+<?php
+// Forzar salida JSON y evitar mostrar warnings en pantalla (usar logs)
+header('Content-Type: application/json; charset=utf-8');
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
+// Evitar que cualquier salida previa rompa el JSON
+ob_start();
 
+/**
+ * Enviar respuesta JSON y terminar ejecución.
+ */
+function send_json($code, $data) {
+    // Limpiar cualquier salida previa
+    if (ob_get_length()) ob_clean();
+    http_response_code($code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data);
+    exit;
+}
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    send_json(200, ["ok" => true]);
+}
 
---
--- Base de datos: `app_comidas`
---
+require_once __DIR__ . '/../db.php';
 
--- --------------------------------------------------------
+$metodo = $_SERVER['REQUEST_METHOD'];
 
---
--- Estructura de tabla para la tabla `menus`
---
+// GET - Listar usuarios
+if ($metodo === 'GET') {
+    $sql = "SELECT id, identificacion, nombre, email, perfil FROM usuarios ORDER BY id DESC";
+    $result = $conn->query($sql);
+    
+    $usuarios = [];
+    if ($result && $result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $usuarios[] = $row;
+        }
+    }
+    
+    send_json(200, ["usuarios" => $usuarios]);
+}
 
-CREATE TABLE `menus` (
-  `id` int(11) NOT NULL,
-  `nombre` varchar(100) NOT NULL,
-  `descripcion` text DEFAULT NULL,
-  `empresa` varchar(100) DEFAULT NULL,
-  `precio` decimal(8,2) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+// POST - Crear usuario (SIN validación de admin)
+if ($metodo === 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $identificacion = trim($data['identificacion'] ?? '');
+    $nombre = trim($data['nombre'] ?? '');
+    $email = trim($data['email'] ?? '');
+    $password = $data['password'] ?? '';
+    $perfil = $data['perfil'] ?? 'trabajador';
+    $empresa_id = isset($data['empresa_id']) && is_numeric($data['empresa_id']) ? intval($data['empresa_id']) : null;
+    
+    // Validar campos obligatorios
+    if (empty($identificacion) || empty($nombre) || empty($email) || empty($password)) {
+        send_json(400, ["error" => "Todos los campos son obligatorios"]);
+    }
+    
+    // Validar formato de email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        send_json(400, ["error" => "El formato del email no es válido"]);
+    }
+    
+    // Verificar si la identificación ya existe
+    $stmt = $conn->prepare("SELECT id FROM usuarios WHERE identificacion = ?");
+    $stmt->bind_param("s", $identificacion);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res && $res->num_rows > 0) {
+        $stmt->close();
+        $conn->close();
+        send_json(400, ["error" => "La identificación ya está registrada"]);
+    }
+    $stmt->close();
+    
+    // Verificar si el email ya existe
+    $stmt = $conn->prepare("SELECT id FROM usuarios WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res && $res->num_rows > 0) {
+        $stmt->close();
+        $conn->close();
+        send_json(400, ["error" => "El email ya está registrado"]);
+    }
+    $stmt->close();
+    
+    // Validar longitud de contraseña
+    if (strlen($password) < 6) {
+        $conn->close();
+        send_json(400, ["error" => "La contraseña debe tener al menos 6 caracteres"]);
+    }
+    
+    // Encriptar contraseña
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    
+    // Si es trabajador, empresa_id es obligatorio
+    if ($perfil === 'trabajador' && empty($empresa_id)) {
+        send_json(400, ["error" => "La empresa es obligatoria para trabajadores"]);
+    }
+    
+    // Insertar usuario
+    $stmt = $conn->prepare("INSERT INTO usuarios (identificacion, nombre, email, password, perfil, empresa_id) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssi", $identificacion, $nombre, $email, $password_hash, $perfil, $empresa_id);
+    
+    if ($stmt->execute()) {
+        $nuevo_id = $conn->insert_id;
+        $stmt->close();
+        $conn->close();
+        send_json(201, [
+            'ok' => true,
+            'mensaje' => 'Usuario creado',
+            'usuario_id' => $nuevo_id
+        ]);
+    } else {
+        $error = $stmt->error;
+        $stmt->close();
+        $conn->close();
+        send_json(500, ["error" => "Error al crear usuario: " . $error]);
+    }
+}
 
--- --------------------------------------------------------
+// PUT - Actualizar usuario (SIN validación de admin)
+if ($metodo === 'PUT') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $usuario_id = $data['id'] ?? null;
+    $nombre = trim($data['nombre'] ?? '');
+    $email = trim($data['email'] ?? '');
+    $perfil = $data['perfil'] ?? '';
+    $password = $data['password'] ?? null;
+    
+    if (empty($usuario_id) || empty($nombre) || empty($email) || empty($perfil)) {
+        $conn->close();
+        send_json(400, ["error" => "Faltan campos obligatorios"]);
+    }
+    
+    // Si hay contraseña nueva, actualizar con contraseña
+    if (!empty($password)) {
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("UPDATE usuarios SET nombre = ?, email = ?, password = ?, perfil = ? WHERE id = ?");
+        $stmt->bind_param("ssssi", $nombre, $email, $password_hash, $perfil, $usuario_id);
+    } else {
+        // Actualizar sin cambiar contraseña
+        $stmt = $conn->prepare("UPDATE usuarios SET nombre = ?, email = ?, perfil = ? WHERE id = ?");
+        $stmt->bind_param("sssi", $nombre, $email, $perfil, $usuario_id);
+    }
+    
+    if ($stmt->execute()) {
+        $stmt->close();
+        $conn->close();
+        send_json(200, [
+            "success" => true,
+            "mensaje" => "Usuario actualizado exitosamente"
+        ]);
+    } else {
+        $stmt->close();
+        $conn->close();
+        send_json(500, ["error" => "Error al actualizar usuario"]);
+    }
+}
 
---
--- Estructura de tabla para la tabla `pedidos`
---
+// DELETE - Eliminar usuario (SIN validación de admin)
+if ($metodo === 'DELETE') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $usuario_id = $data['id'] ?? null;
+    
+    if (empty($usuario_id)) {
+        $conn->close();
+        send_json(400, ["error" => "ID de usuario requerido"]);
+    }
+    
+    // Eliminar usuario
+    $stmt = $conn->prepare("DELETE FROM usuarios WHERE id = ?");
+    $stmt->bind_param("i", $usuario_id);
+    
+    if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
+            $stmt->close();
+            $conn->close();
+            send_json(200, [
+                "success" => true,
+                "mensaje" => "Usuario eliminado exitosamente"
+            ]);
+        } else {
+            $stmt->close();
+            $conn->close();
+            send_json(404, ["error" => "Usuario no encontrado"]);
+        }
+    } else {
+        $error = $stmt->error;
+        $stmt->close();
+        $conn->close();
+        send_json(500, ["error" => "Error al eliminar usuario: " . $error]);
+    }
+}
 
-CREATE TABLE `pedidos` (
-  `id` int(11) NOT NULL,
-  `usuario_id` int(11) NOT NULL,
-  `menu_id` int(11) NOT NULL,
-  `cantidad` int(11) DEFAULT 1,
-  `fecha` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `usuarios`
---
-
-CREATE TABLE `usuarios` (
-  `id` int(11) NOT NULL,
-  `nombre` varchar(50) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `perfil` enum('administrador','supervisor','vendedor','trabajador') NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `usuarios`
---
-
-INSERT INTO `usuarios` (`id`, `nombre`, `email`, `password`, `perfil`) VALUES
-(1, 'Admin', 'admin@app.com', 'Admin123', 'administrador');
-
---
--- Índices para tablas volcadas
---
-
---
--- Indices de la tabla `menus`
---
-ALTER TABLE `menus`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indices de la tabla `pedidos`
---
-ALTER TABLE `pedidos`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `usuario_id` (`usuario_id`),
-  ADD KEY `menu_id` (`menu_id`);
-
---
--- Indices de la tabla `usuarios`
---
-ALTER TABLE `usuarios`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`);
-
---
--- AUTO_INCREMENT de las tablas volcadas
---
-
---
--- AUTO_INCREMENT de la tabla `menus`
---
-ALTER TABLE `menus`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de la tabla `pedidos`
---
-ALTER TABLE `pedidos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de la tabla `usuarios`
---
-ALTER TABLE `usuarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- Restricciones para tablas volcadas
---
-
---
--- Filtros para la tabla `pedidos`
---
-ALTER TABLE `pedidos`
-  ADD CONSTRAINT `pedidos_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`),
-  ADD CONSTRAINT `pedidos_ibfk_2` FOREIGN KEY (`menu_id`) REFERENCES `menus` (`id`);
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+// Si llega hasta aquí, devolver error por defecto
+$conn->close();
+send_json(400, ["error" => "Método no soportado"]);
