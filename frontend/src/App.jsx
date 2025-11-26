@@ -5,8 +5,6 @@ import DashboardAdministrador from './DashboardAdministrador.jsx';
 import DashboardSupervisor from './DashboardSupervisor.jsx';
 import DashboardTrabajador from './DashboardTrabajador.jsx';
 import DashboardVendedor from './DashboardVendedor.jsx';
-// or wherever the component is located
-
 
 // Componente principal App con enrutamiento por roles
 export default function App() {

@@ -345,7 +345,7 @@ function DashboardAdministrador({ user, onLogout }) {
     }
   };
 
-  // Usuarios / empresas CRUD (mantener funciones existentes)
+  // Usuarios / empresas CRUD
   const crearUsuario = async () => {
     if (!nuevaIdentificacion || !nuevoNombre || !nuevoEmail || !nuevoPassword) {
       showToast("Completa todos los campos", "warning");
