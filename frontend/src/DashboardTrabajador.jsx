@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, AlertCircle, Calendar, UtensilsCrossed, DollarSign, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, UtensilsCrossed, DollarSign, XCircle, RefreshCw } from 'lucide-react';
 
 const API_BASE = 'http://localhost/restaurante/backend/api';
 
-function DashboardTrabajadorMejorado({ user, onLogout }) {
-  // Estados principales
+function DashboardTrabajador({ user, onLogout }) {
   const [selectedMenuOption, setSelectedMenuOption] = useState(null);
   const [menus, setMenus] = useState([]);
   const [pedidoActual, setPedidoActual] = useState(null);
@@ -12,61 +11,50 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [error, setError] = useState(null);
-  
-  // Estados adicionales
   const [observaciones, setObservaciones] = useState('');
   const [horarioCerrado, setHorarioCerrado] = useState(false);
   
-  // Fecha de hoy
   const hoy = new Date().toISOString().slice(0, 10);
-  const horaActual = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  const fechaFormateada = new Date().toLocaleDateString('es-CO', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 
-  // ⭐ DEBUG: Mostrar info del usuario al cargar
-  useEffect(() => {
-    console.log('👤 Usuario recibido:', user);
-    console.log('🏢 Empresa ID:', user?.empresa_id);
-    console.log('🆔 Usuario ID:', user?.id);
-  }, [user]);
-
-  // Verificar horario de cierre
+  // Verificar horario
   useEffect(() => {
     const verificarHorario = () => {
       const ahora = new Date();
       const hora = ahora.getHours();
       const minutos = ahora.getMinutes();
       const horaEnMinutos = hora * 60 + minutos;
-      const horaCierre = 17 * 60;
-      
+      const horaCierre = 17 * 60; // 5:00 PM
       setHorarioCerrado(horaEnMinutos >= horaCierre);
     };
     
     verificarHorario();
     const interval = setInterval(verificarHorario, 60000);
-    
     return () => clearInterval(interval);
   }, []);
 
+  // Cargar datos iniciales
   useEffect(() => {
     const empresaId = user?.empresa_id;
     const userId = user?.id;
     
-    console.log('🔄 useEffect - Validando datos:', { empresaId, userId, user });
-    
     if (!empresaId) {
-      console.error('❌ Empresa ID no encontrado');
-      setError('Usuario sin empresa asignada. Por favor contacta al administrador.');
+      setError('Usuario sin empresa asignada. Contacta al administrador.');
       setLoading(false);
       return;
     }
     
     if (!userId) {
-      console.error('❌ Usuario ID no encontrado');
-      setError('Usuario no identificado. Por favor vuelve a iniciar sesión.');
+      setError('Usuario no identificado. Vuelve a iniciar sesión.');
       setLoading(false);
       return;
     }
     
-    console.log('✅ Datos válidos, cargando...');
     cargarDatos(empresaId, userId);
   }, [user?.empresa_id, user?.id]);
 
@@ -76,7 +64,6 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
   };
 
   const cargarDatos = async (empresaId, userId) => {
-    console.log('🔄 cargarDatos iniciado:', { empresaId, userId });
     setLoading(true);
     setError(null);
     
@@ -85,9 +72,7 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
         cargarMenus(empresaId),
         cargarPedidoActual(userId)
       ]);
-      console.log('✅ Datos cargados exitosamente');
     } catch (err) {
-      console.error('❌ Error al cargar datos:', err);
       setError(err.message || 'Error al cargar información');
       showToast('Error al cargar información', 'error');
     } finally {
@@ -96,76 +81,55 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
   };
 
   const cargarMenus = async (empresa_id) => {
-    console.log('📋 Cargando menús para empresa:', empresa_id);
-    
     try {
       const url = `${API_BASE}/menus.php?empresa_id=${empresa_id}`;
-      console.log('🌐 Fetching:', url);
-      
       const res = await fetch(url);
-      console.log('📡 Response status:', res.status);
       
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
-      console.log('✅ Menús recibidos:', data);
       
       if (data.menus && Array.isArray(data.menus)) {
         const menusActivos = data.menus.filter(m => 
           m.opciones && m.opciones.length >= 3
         );
-        console.log('📊 Menús activos:', menusActivos.length);
         setMenus(menusActivos);
         
         if (menusActivos.length === 0) {
           showToast('No hay menús disponibles para hoy', 'warning');
         }
       } else {
-        console.warn('⚠️ Respuesta sin menús válidos');
         setMenus([]);
       }
     } catch (err) {
-      console.error('❌ Error en cargarMenus:', err);
       setMenus([]);
       throw new Error(`Error al cargar menús: ${err.message}`);
     }
   };
 
   const cargarPedidoActual = async (trabajador_id) => {
-    console.log('🍽️ Cargando pedido para trabajador:', trabajador_id);
-    
     try {
       const url = `${API_BASE}/crear_pedido.php?trabajador_id=${trabajador_id}&fecha=${hoy}`;
-      console.log('🌐 Fetching:', url);
-      
       const res = await fetch(url);
-      console.log('📡 Response status:', res.status);
       
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
-      console.log('✅ Pedido recibido:', data);
       
       if (data.tiene_pedido && data.pedido) {
         setPedidoActual(data.pedido);
         setObservaciones(data.pedido.observaciones || '');
-        
         setSelectedMenuOption({
           menuId: data.pedido.menu_id,
           opcionId: data.pedido.opcion_id
         });
       } else {
-        console.log('ℹ️ Usuario sin pedido actual');
         setPedidoActual(null);
         setSelectedMenuOption(null);
         setObservaciones('');
       }
     } catch (err) {
-      console.error('❌ Error en cargarPedidoActual:', err);
+      console.error('Error al cargar pedido:', err);
       setPedidoActual(null);
     }
   };
@@ -182,7 +146,7 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
     }
 
     if (horarioCerrado) {
-      showToast('⏰ El horario de pedidos ha cerrado', 'error');
+      showToast('⏰ El horario de pedidos ha cerrado (cierre: 5:00 PM)', 'error');
       return;
     }
 
@@ -218,7 +182,12 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
   };
 
   const cancelarPedido = async () => {
-    if (!pedidoActual || horarioCerrado) return;
+    if (!pedidoActual) return;
+    
+    if (horarioCerrado) {
+      showToast('⏰ No puedes cancelar después del horario límite', 'error');
+      return;
+    }
 
     const confirmacion = window.confirm('¿Estás seguro de cancelar tu pedido?');
     if (!confirmacion) return;
@@ -253,12 +222,12 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
     }
   };
 
-  const getToastIcon = (type) => {
+  const getToastColor = (type) => {
     switch(type) {
-      case 'success': return '✅';
-      case 'error': return '❌';
-      case 'warning': return '⚠️';
-      default: return 'ℹ️';
+      case 'success': return 'bg-green-50 border-green-500 text-green-800';
+      case 'error': return 'bg-red-50 border-red-500 text-red-800';
+      case 'warning': return 'bg-yellow-50 border-yellow-500 text-yellow-800';
+      default: return 'bg-blue-50 border-blue-500 text-blue-800';
     }
   };
 
@@ -269,26 +238,14 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
         <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Error al Cargar</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left">
-            <p className="text-xs text-gray-500 font-mono">Debug Info:</p>
-            <pre className="text-xs text-gray-700 mt-2">
-              {JSON.stringify({ 
-                empresa_id: user?.empresa_id, 
-                user_id: user?.id,
-                perfil: user?.perfil 
-              }, null, 2)}
-            </pre>
-          </div>
+          <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex gap-3">
             <button
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
-              className="flex-1 bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700"
+              onClick={() => window.location.reload()}
+              className="flex-1 bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 flex items-center justify-center gap-2"
             >
-              Reiniciar Sesión
+              <RefreshCw className="w-5 h-5" />
+              Reintentar
             </button>
             <button
               onClick={onLogout}
@@ -302,6 +259,7 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
     );
   }
 
+  // Pantalla de carga
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
@@ -311,7 +269,6 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
             <div className="absolute inset-0 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
           <p className="text-gray-700 font-medium">Cargando menús disponibles...</p>
-          <p className="text-gray-500 text-sm mt-2">Por favor espera</p>
         </div>
       </div>
     );
@@ -322,30 +279,15 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
       {/* Toast */}
       {toast.show && (
         <div className="fixed top-6 right-6 z-50 max-w-md animate-slideIn">
-          <div className={`px-5 py-4 rounded-xl shadow-2xl border-l-4 ${
-            toast.type === 'success' ? 'bg-green-50 border-green-500' :
-            toast.type === 'error' ? 'bg-red-50 border-red-500' :
-            toast.type === 'warning' ? 'bg-yellow-50 border-yellow-500' :
-            'bg-blue-50 border-blue-500'
-          }`}>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{getToastIcon(toast.type)}</span>
-              <p className={`text-sm font-medium ${
-                toast.type === 'success' ? 'text-green-800' :
-                toast.type === 'error' ? 'text-red-800' :
-                toast.type === 'warning' ? 'text-yellow-800' :
-                'text-blue-800'
-              }`}>
-                {toast.message}
-              </p>
-            </div>
+          <div className={`px-5 py-4 rounded-xl shadow-2xl border-l-4 ${getToastColor(toast.type)}`}>
+            <p className="text-sm font-medium">{toast.message}</p>
           </div>
         </div>
       )}
 
       {/* Header */}
       <header className="bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 text-white shadow-2xl">
-        <div className="max-w-5xl mx-auto px-4 py-5">
+        <div className="max-w-6xl mx-auto px-4 py-5">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
               <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
@@ -367,37 +309,129 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Info Bar */}
+        <div className="bg-white rounded-xl shadow-lg p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-6 h-6 text-orange-600" />
+            <div>
+              <p className="text-sm text-gray-500">Fecha de pedido</p>
+              <p className="font-semibold text-gray-800 capitalize">{fechaFormateada}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <Clock className="w-6 h-6 text-orange-600" />
+            <div>
+              <p className="text-sm text-gray-500">Horario límite</p>
+              <p className={`font-semibold ${horarioCerrado ? 'text-red-600' : 'text-green-600'}`}>
+                {horarioCerrado ? 'Cerrado' : 'Abierto hasta 5:00 PM'}
+              </p>
+            </div>
+          </div>
+
+          {pedidoActual && (
+            <div className="flex items-center gap-3 bg-green-50 px-4 py-3 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+              <div>
+                <p className="text-sm text-gray-500">Estado</p>
+                <p className="font-semibold text-green-700">Pedido Confirmado</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Resumen de pedido actual */}
+        {pedidoActual && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-lg p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Tu Pedido de Hoy</h3>
+                    <p className="text-sm text-gray-600">Ya tienes un pedido confirmado</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 bg-white/60 rounded-lg p-4">
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Menú:</span> {pedidoActual.menu_nombre}
+                  </p>
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Opción:</span> {pedidoActual.opcion_nombre}
+                  </p>
+                  <p className="text-gray-600 text-sm">{pedidoActual.opcion_descripcion}</p>
+                  {pedidoActual.opcion_precio && (
+                    <p className="text-xl font-bold text-green-700 mt-2">
+                      ${Number(pedidoActual.opcion_precio).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+                  {pedidoActual.observaciones && (
+                    <p className="text-sm text-gray-600 mt-3 italic">
+                      <span className="font-semibold">Observaciones:</span> {pedidoActual.observaciones}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {!horarioCerrado && (
+                <button
+                  onClick={cancelarPedido}
+                  disabled={submitting}
+                  className="ml-4 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <XCircle className="w-5 h-5" />
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Selector de menú */}
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold mb-4">Selecciona tu Menú</h2>
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+            <UtensilsCrossed className="w-7 h-7 text-orange-600" />
+            {pedidoActual ? 'Cambiar tu Pedido' : 'Selecciona tu Menú'}
+          </h2>
           
           {menus.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {menus.map(menu => (
-                <div key={menu.id} className="border p-4 rounded-lg">
-                  <h3 className="font-bold text-lg">{menu.nombre}</h3>
-                  <p className="text-sm text-gray-600 mb-4">{menu.descripcion}</p>
+                <div key={menu.id} className="border-2 border-gray-200 rounded-xl p-6 hover:border-orange-300 transition-colors">
+                  <h3 className="font-bold text-xl text-gray-800 mb-2">{menu.nombre}</h3>
+                  {menu.descripcion && (
+                    <p className="text-gray-600 mb-5">{menu.descripcion}</p>
+                  )}
                   
-                  <div className="grid grid-cols-3 gap-4">
-                    {menu.opciones.map(op => (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {menu.opciones.map(opcion => (
                       <button
-                        key={op.opcion_id}
+                        key={opcion.opcion_id}
                         onClick={() => setSelectedMenuOption({ 
                           menuId: menu.id, 
-                          opcionId: op.opcion_id 
+                          opcionId: opcion.opcion_id 
                         })}
-                        className={`p-4 border-2 rounded-lg ${
-                          selectedMenuOption?.opcionId === op.opcion_id
-                            ? 'border-orange-500 bg-orange-50'
-                            : 'border-gray-200 hover:border-orange-300'
-                        }`}
+                        disabled={horarioCerrado}
+                        className={`p-5 border-2 rounded-xl transition-all text-left ${
+                          selectedMenuOption?.opcionId === opcion.opcion_id
+                            ? 'border-orange-500 bg-orange-50 shadow-lg transform scale-105'
+                            : 'border-gray-200 hover:border-orange-300 hover:shadow-md'
+                        } ${horarioCerrado ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        <p className="font-semibold">{op.nombre}</p>
-                        <p className="text-sm text-gray-600">{op.descripcion}</p>
-                        {op.precio && (
-                          <p className="text-lg font-bold text-orange-600 mt-2">
-                            ${Number(op.precio).toFixed(2)}
+                        <p className="font-bold text-lg text-gray-800 mb-1">{opcion.nombre}</p>
+                        <p className="text-sm text-gray-600 mb-3">{opcion.descripcion}</p>
+                        {opcion.precio && (
+                          <p className="text-xl font-bold text-orange-600">
+                            ${Number(opcion.precio).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
                           </p>
+                        )}
+                        {selectedMenuOption?.opcionId === opcion.opcion_id && (
+                          <div className="mt-3 flex items-center gap-2 text-orange-600">
+                            <CheckCircle className="w-5 h-5" />
+                            <span className="text-sm font-semibold">Seleccionado</span>
+                          </div>
                         )}
                       </button>
                     ))}
@@ -405,23 +439,87 @@ function DashboardTrabajadorMejorado({ user, onLogout }) {
                 </div>
               ))}
               
+              {/* Observaciones */}
+              <div className="border-2 border-gray-200 rounded-xl p-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Observaciones (opcional)
+                </label>
+                <textarea
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                  disabled={horarioCerrado}
+                  placeholder="Ej: Sin cebolla, poca sal, etc."
+                  className="w-full border-2 border-gray-200 rounded-lg p-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                  rows="3"
+                  maxLength="200"
+                />
+                <p className="text-xs text-gray-500 mt-1">{observaciones.length}/200 caracteres</p>
+              </div>
+              
+              {/* Botón de confirmación */}
               <button
                 onClick={confirmarPedido}
-                disabled={!selectedMenuOption || submitting}
-                className="w-full bg-orange-600 text-white py-4 rounded-lg font-bold hover:bg-orange-700 disabled:opacity-50"
+                disabled={!selectedMenuOption || submitting || horarioCerrado}
+                className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
               >
-                {submitting ? 'Guardando...' : 'Confirmar Pedido'}
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Guardando...
+                  </>
+                ) : horarioCerrado ? (
+                  <>
+                    <Clock className="w-6 h-6" />
+                    Horario Cerrado
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-6 h-6" />
+                    {pedidoActual ? 'Actualizar Pedido' : 'Confirmar Pedido'}
+                  </>
+                )}
               </button>
+              
+              {horarioCerrado && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-800">Horario de pedidos cerrado</p>
+                    <p className="text-sm text-red-600 mt-1">
+                      El límite para realizar o modificar pedidos es a las 5:00 PM. 
+                      Vuelve mañana para hacer tu pedido.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            <p className="text-center text-gray-500 py-12">
-              No hay menús disponibles
-            </p>
+            <div className="text-center py-12">
+              <UtensilsCrossed className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No hay menús disponibles para hoy</p>
+              <p className="text-gray-400 text-sm mt-2">Consulta más tarde o contacta al administrador</p>
+            </div>
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
 
-export default DashboardTrabajadorMejorado;
+export default DashboardTrabajador;
