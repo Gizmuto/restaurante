@@ -22,18 +22,30 @@ function DashboardTrabajador({ user, onLogout }) {
     day: 'numeric' 
   });
 
-  // Verificar horario
+  // Verificar horario (Forzando zona horaria Colombia)
   useEffect(() => {
     const verificarHorario = () => {
+      // Crear fecha actual
       const ahora = new Date();
-      const hora = ahora.getHours();
-      const minutos = ahora.getMinutes();
-      const horaEnMinutos = hora * 60 + minutos;
-      const horaCierre = 17 * 60; // 5:00 PM
-      setHorarioCerrado(horaEnMinutos >= horaCierre);
+      
+      // Obtener la hora específicamente en Colombia ('America/Bogota')
+      // Esto devuelve una cadena tipo "17", "09", "23" basada en la zona horaria, no en el PC local
+      const horaColombiaStr = ahora.toLocaleTimeString('en-US', {
+        timeZone: 'America/Bogota',
+        hour12: false,
+        hour: 'numeric'
+      });
+
+      const horaColombia = parseInt(horaColombiaStr, 10);
+      
+      // Validar si es mayor o igual a 17 (5 PM)
+      const esTarde = horaColombia >= 17; // >= 17 significa de 5:00 PM en adelante
+      
+      setHorarioCerrado(esTarde);
     };
     
     verificarHorario();
+    // Revisar cada minuto
     const interval = setInterval(verificarHorario, 60000);
     return () => clearInterval(interval);
   }, []);
