@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Login from './pages/Login';
+import Login from './Login';
 
 import DashboardAdministrador from './DashboardAdministrador.jsx';
 import DashboardSupervisor from './DashboardSupervisor.jsx';

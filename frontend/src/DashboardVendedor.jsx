@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Login from './pages/Login';
+import Login from './Login';
 
 // Dashboard Vendedor
 function DashboardVendedor({ user, onLogout }) {
